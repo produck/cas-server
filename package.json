@@ -1,0 +1,35 @@
+{
+  "name": "cas-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/or-change/cas-server.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/or-change/cas-server/issues"
+  },
+  "homepage": "https://github.com/or-change/cas-server#readme",
+  "dependencies": {
+    "axios": "^0.19.0",
+    "koa": "^2.7.0",
+    "koa-bodyparser": "^4.2.1",
+    "koa-router": "^7.4.0",
+    "lru-cache": "^5.1.1",
+    "randexp": "^0.5.3",
+    "xmlbuilder": "^13.0.2"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4"
+  }
+}
