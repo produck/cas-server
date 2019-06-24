@@ -98,14 +98,23 @@ const proxyResponseTypeMap = {
 			ctx.type = 'application/json';
 
 			return {
-
-				proxyTicket: pgtId
+				serviceResponse: {
+					proxySuccess: {
+						proxyTicket: pgtId
+					}
+				}
 			};
 		}
 
-		return {
-			'INVALID_REQUESET': 'pgt and targetService parameters are both required.'
+		return  {
+			serviceResponse: {
+				proxyFailure: {
+					code: 'INVALID_REQUESET',
+					description: 'pgt and targetService parameters are both required.'
+				}
+			}
 		};
+
 	},
 	xml: function (pgtId, ctx) {
 		if (ctx.registry.ticket.st.get(pgtId)) {
@@ -199,8 +208,7 @@ module.exports = function createRouter(options) {
 
 		ctx.cookies.set(tgcName, null);
 
-		//TODO
-		const serviceList = await ctx.registry.ticket.tgt.remove(tgc);
+		await ctx.registry.ticket.tgt.remove(tgc);
 
 		ctx.redirect(service || '/login');
 	}).get('/serviceValidate', async ctx => {
@@ -217,17 +225,6 @@ module.exports = function createRouter(options) {
 		const proxyTicket = await ctx.registry.ticket.st.create(pgt, targetService);
 
 		ctx.body = proxyResponseTypeMap[ctx.options.contentType](proxyTicket.id, ctx);
-	}).get('/test', ctx => {
-		ctx.body = `<!DOCTYPE html>
-		<html lang="en">
-		<body>
-			<form action="http://localhost:9000/cas/login?service=http://localhost:2000" method="POST">
-				username: <input type="text" name="username">
-				password: <input type="password" name="password">
-				<input type="submit" value="submit">
-			</form>
-		</body>
-		</html>`;
 	});
 };
 

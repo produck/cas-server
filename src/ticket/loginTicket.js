@@ -37,24 +37,21 @@ exports.LoginTicketStore = function () {
 			return lt;
 		},
 		get(id) {
-			return true;
-			// return ltStore[id];
+			return ltStore[id];
 		},
 		validate(id) {
-			// const lt = ltStore[id];
+			const lt = ltStore[id];
 
-			// if (!lt) {
-			// 	return null;
-			// }
+			if (!lt) {
+				return null;
+			}
 
-			// if (lt.validated) {
-			// 	return false;
-			// }
+			if (lt.validated) {
+				return false;
+			}
 
-			// lt.validated = true;
-			// ltStore[lt.id] = lt;
-
-			return true;
-		},
+			lt.validated = true;
+			ltStore[lt.id] = lt;
+		}
 	};
 };
