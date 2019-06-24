@@ -2,7 +2,7 @@ const LRU = require('lru-cache');
 const os = require('os');
 const randExp = require('randexp');
 
-const DEAFULT_MAX_SERVICE_TICKET_LIFE = 60 * 1000; // 10s
+const DEAFULT_MAX_SERVICE_TICKET_LIFE = 10 * 1000; // 10s
 const DEFAULT_MAX_TICKET_GRANTING_TICKET_LIFE = 8 * 60 * 60 * 1000; // 8h
 const DEFAULT_TIME_TO_KILL_IN_SECOND = 2 * 60 * 60 * 1000; // 2h
 
@@ -44,13 +44,12 @@ exports.Registry = function (options) {
 		};
 	}
 
-	function TicketGrantingTicket(serviceName, principal, parentTgtId = null) {
+	function TicketGrantingTicket(principal, parentTgtId = null) {
 		const isPgt = parentTgtId !== null;
 
 		return {
 			id: TicketId(isPgt ? 'PGT' : 'TGT', 'tgt'),
 			parent: parentTgtId,
-			serviceName,
 			createAt: Date.now(),
 			stIdList: [],
 			pgtIdList: [],
@@ -61,11 +60,9 @@ exports.Registry = function (options) {
 	function collectionService(ticketId, list) {
 		const tgt = store.tgt.get(ticketId);
 		list.push(tgt.serviceName);
-		console.log(tgt);
 
 		if (tgt.stIdList) {
 			tgt.stIdList.forEach(stId => {
-				console.log(store.st.get(stId));
 				list.push(store.st.get(stId).serviceName);
 			});
 		}
@@ -81,9 +78,9 @@ exports.Registry = function (options) {
 
 	return {
 		tgt: {
-			create(serviceName, principal, stId = null) {
+			create(principal, stId = null) {
 				if (stId === null) {
-					const tgt = TicketGrantingTicket(serviceName, principal);
+					const tgt = TicketGrantingTicket(principal);
 					store.tgt.set(tgt.id, tgt);
 
 					return tgt;
@@ -95,7 +92,7 @@ exports.Registry = function (options) {
 					throw new Error('');
 				}
 
-				const pgt = TicketGrantingTicket(serviceName, principal, st.tgtId);
+				const pgt = TicketGrantingTicket( principal, st.tgtId);
 				const parentTgt = store.tgt.get(st.tgtId);
 
 				store.tgt.set(pgt.id, pgt);

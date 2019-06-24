@@ -15,10 +15,12 @@ function success(username, attributes, pgtId) {
 		.end({ pretty: true});
 }
 
-function failure({code, message}) {
-	return xmlBuilder.create('cas:serviceResponse', {'xmlns:cas': 'http://www.yale.edu/tp/cas'})
-		.ele('cas:authenticationFailure', { 'code': code }, message)
-		.end({ pretty: true });
+function failure(code, message) {
+	return xmlBuilder.create('cas:serviceResponse', {
+		'xmlns:cas': 'http://www.yale.edu/tp/cas'
+	}).ele('cas:authenticationFailure', {
+		code
+	}, message).end({ pretty: true });
 }
 
 function proxySuccess(pgt) {

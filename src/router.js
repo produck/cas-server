@@ -7,10 +7,7 @@ const axios = require('axios');
 const localDomainToIp = /localhost/;
 
 const errorCodeList = {
-	INVALID_REQUESET: {
-		code: 'INVALID_REQUEST',
-		message: 'Not all of the required request parameters were present.'
-	},
+	INVALID_REQUESET: 'Not all of the required request parameters were present.',
 	INVALID_TICKET_SPEC: {
 		code: 'INVALID_TICKET_SPEC',
 		message: 'Failure to meet the requirements of validation sepecification.'
@@ -139,7 +136,7 @@ module.exports = function createRouter(prefix = '/cas') {
 			
 			const { user, attributes } = await ctx.options.authenticateAccount(ctx.request.body, ctx);
 			attributes.authenticationDate = new Date();
-			const ticketGrantingTicket = await ctx.registry.ticket.ticketGrantingTicket.tgt.create(serviceUrl, genPrincipal(user, attributes));
+			const ticketGrantingTicket = await ctx.registry.ticket.ticketGrantingTicket.tgt.create(genPrincipal(user, attributes));
 
 			ctx.cookies.set('CASTGC', ticketGrantingTicket.id);
 
@@ -206,7 +203,7 @@ module.exports = function createRouter(prefix = '/cas') {
 
 		const loginTicket = await ctx.registry.ticket.login.create();
 		//TODO remember to delete this
-		console.log(ctx.registry.ticket.login.getList());
+		// console.log(ctx.registry.ticket.login.getList());
 
 		ctx.body = loginResponseTypeMap[ctx.options.loginType](loginTicket, serviceUrl, ctx);
 	}).get('/logout', async ctx => {
