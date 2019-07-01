@@ -2,22 +2,23 @@ const randExp = require('randexp');
 const ticketBody = new randExp(/[a-zA-Z0-9]{24}/);
 
 const DEFAULT_LOGIN_TICKET_LIFE = 5 * 60 * 1000; //5 min
+let counter = 1;
+
+function genTicketId() {
+	return 'LT-' + counter++ + '-' +  ticketBody.gen();
+}
+
+function LoginTicket() {
+	return {
+		id: genTicketId(),
+		createdAt: Date.now(),
+		validated: false
+	};
+}
+
 
 exports.LoginTicketStore = function () {
 	const ltStore = {};
-	let counter = 1;
-
-	function genTicketId() {
-		return 'LT-' + counter++ + '-' +  ticketBody.gen();
-	}
-
-	function LoginTicket() {
-		return {
-			id: genTicketId(),
-			createdAt: Date.now(),
-			validated: false
-		};
-	}
 
 	setInterval(function invalidTicketCleaner() {
 		Object.keys(ltStore).forEach(ltId => {
@@ -52,6 +53,8 @@ exports.LoginTicketStore = function () {
 
 			lt.validated = true;
 			ltStore[lt.id] = lt;
+
+			return ltStore[lt.id];
 		}
 	};
 };

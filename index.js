@@ -1,48 +1,15 @@
 const Koa = require('koa');
+const Router = require('koa-router');
+const rootRouter = new Router();
 const bodyparser = require('koa-bodyparser');
-const router = require('./src/router');
 const store = require('./src/ticket/store');
-const memoryRegistry = require('./memoryRegistry');
+const merge = require('./src/merge');
+const casRouter = require('./src/router');
 
-function BASIC_AUTHENTICATE_ACCOUNT(reqestBody) {
-	const loginInfo = {
-		user: reqestBody.username,
-		attributes: {
-			authenticationDate: null
-		}
-	};
+exports.createServer = function Server(...casOptions) {
+	const allOptions = merge(...casOptions);
 
-	return loginInfo;
-}
-
-function BASIC_VALIDATE_SERVICE(service) {
-	return true;
-}
-
-
-exports.createServer = function Server(options = {}) {
-	const {
-		validateService = BASIC_VALIDATE_SERVICE,
-		authenticateAccount = BASIC_AUTHENTICATE_ACCOUNT,
-		contentType = 'xml',
-		loginType = 'html',
-		registryOptions = {
-			maxServiceTicketLife: null,
-			maxTicketGrantingTicketLife: null,
-			timeToKillInSecond: null,
-			ticketRegistry: null
-		},
-		routerOptions = {
-			prefix: '/cas',
-			tgcName: 'CASTGC'
-		}
-	} = options;
-
-	if (!registryOptions.ticketRegistry) {
-		registryOptions.ticketRegistry = memoryRegistry.createMemoryRegistry();
-	}
-
-	const registry = store.Registry(registryOptions);
+	const registry = store.Registry(allOptions.cas.ticket);
 
 	const app = new Koa();
 
@@ -54,9 +21,13 @@ exports.createServer = function Server(options = {}) {
 	};
 
 	app.context.options = {
-		contentType, loginType,
-		validateService, authenticateAccount,
+		serviceResponse: allOptions.cas.serviceResponse, 
+		loginResponse: allOptions.cas.loginResponse,
+		validateService: allOptions.cas.serviceResistry, 
+		authenticateAccount: allOptions.cas.authn
 	};
 
-	return app.use(bodyparser()).use(router(routerOptions).routes());
+	const { name, path } = allOptions.cas.tgc;
+
+	return app.use(bodyparser()).use(rootRouter.use(path, casRouter(name).routes()).routes());
 };

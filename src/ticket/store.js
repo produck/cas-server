@@ -1,24 +1,14 @@
 const randExp = require('randexp');
-const os = require('os');
-
-const DEFAULT_MAX_SERVICE_TICKET_LIFE = 10 * 1000; // 10 seconds
-const DEFAULT_MAX_TICKET_GRANTING_TICKET_LIFE = 8 * 60 * 60 * 1000; // 8 hours
-const DEFAULT_TIME_TO_KILL_IN_SECOND = 2 * 60 * 60 * 1000; // 2 hours
-
 const ticketBody = new randExp(/[a-zA-Z0-9]{24}/);
-
-function DEFAULT_SUFFIX() {
-	return os.hostname();
-}
 
 exports.Registry = function (options) {
 	const {
-		suffix = DEFAULT_SUFFIX(),
-		maxServiceTicketLife = DEFAULT_MAX_SERVICE_TICKET_LIFE,
-		maxTicketGrantingTicketLife = DEFAULT_MAX_TICKET_GRANTING_TICKET_LIFE,
-		timeToKillInSecond = DEFAULT_TIME_TO_KILL_IN_SECOND,
-		ticketRegistry
+		suffix, 
+		registryMethods 
 	} = options;
+
+	const tgtPolicy = options.tgt;
+	const stPolicy = options.st;
 
 	const counter = { st: 1, tgt: 1 };
 
@@ -32,6 +22,8 @@ exports.Registry = function (options) {
 		return {
 			id: TicketId(isPt ? 'PT' : 'ST', 'st'),
 			tgtId: tgt.id,
+			createdAt: Date.now(),
+			validated: false,
 			serviceName
 		};
 	}
@@ -40,7 +32,7 @@ exports.Registry = function (options) {
 		const isPgt = parentTgtId !== null;
 
 		return {
-			id : TicketId(isPgt ? 'PGT' : 'TGT', 'tgt'),
+			id: TicketId(isPgt ? 'PGT' : 'TGT', 'tgt'),
 			parent: parentTgtId,
 			createdAt: Date.now(),
 			stIdlist: [],
@@ -50,12 +42,12 @@ exports.Registry = function (options) {
 	}
 
 	function collectService(tgtId, list) {
-		const tgt = ticketRegistry.tgt.get(tgtId);
+		const tgt = registryMethods.tgt.get(tgtId);
 		list.push(tgt.serviceName);
 
 		if (tgt.stIdlist !== null) {
 			tgt.stIdlist.forEach(stId => {
-				list.push(ticketRegistry.st.get(stId).serviceName);
+				list.push(registryMethods.st.get(stId).serviceName);
 			});
 		}
 
@@ -68,24 +60,26 @@ exports.Registry = function (options) {
 		}
 	}
 
-	function validateTgt(tgt, life = maxTicketGrantingTicketLife) {  
+	function validateTgt(tgt, life = tgtPolicy.maxTimeToLiveInSeconds) {
 		if (!tgt || !tgt.id || !tgt.createdAt || !tgt.principal) {
 			return false;
 		}
 
-		if (tgt.createdAt > Date.now() - life) {
+		if (tgt.createdAt < Date.now() - life) {
+
 			return false;
 		}
 
 		return true;
 	}
 
-	function validateSt(st, life = maxServiceTicketLife) {
-		if (!st || !st.id ||!st.tgtId || !st.serviceName) {
+	function validateSt(st, life = stPolicy.timeToKillInSeconds) {
+		if (!st || !st.id || !st.tgtId || !st.serviceName) {
 			return false;
-		} 
+		}
 
-		if (st.createdAt > Date.now() - life) {
+		if (st.createdAt < Date.now() - life && st.validated) {
+
 			return false;
 		}
 
@@ -94,31 +88,31 @@ exports.Registry = function (options) {
 
 	return {
 		tgt: {
-			create(principal, stId = null){
+			create(principal, stId = null) {
 				if (stId === null) {
 					const tgt = TicketGrantingTicket(principal);
-					ticketRegistry.tgt.set(tgt);
+					registryMethods.tgt.set(tgt);
 
 					return tgt;
 				}
-				
-				const st = ticketRegistry.st.get(stId);
+
+				const st = registryMethods.st.get(stId);
 				if (!st) {
 					throw new Error('The service ticket not exist.');
 				}
 
 				const pgt = TicketGrantingTicket(principal, st.tgtId);
-				const parentTgt = ticketRegistry.tgt.get(st.tgtId);
+				const parentTgt = registryMethods.tgt.get(st.tgtId);
 
-				ticketRegistry.tgt.set(pgt);
+				registryMethods.tgt.set(pgt);
 				parentTgt.pgtIdList.push(pgt.id);
 
 				return pgt;
 			},
 			get(id) {
-				const tgt = ticketRegistry.tgt.get(id);
+				const tgt = registryMethods.tgt.get(id);
 
-				if (!tgt|| !validateTgt(tgt)) {
+				if (!tgt || !validateTgt(tgt)) {
 					return null;
 				}
 
@@ -128,26 +122,26 @@ exports.Registry = function (options) {
 				const serviceList = [];
 				collectService(id, serviceList);
 
-				ticketRegistry.tgt.del(id);
+				registryMethods.tgt.del(id);
 
 				return serviceList;
 			}
 		},
 		st: {
 			create(tgtId, serviceName) {
-				if (!ticketRegistry.tgt.get(tgtId)) {
+				if (!registryMethods.tgt.get(tgtId)) {
 					return new Error('The ticket granting ticket not exist.');
 				}
 
-				const tgt = ticketRegistry.tgt.get(tgtId);
+				const tgt = registryMethods.tgt.get(tgtId);
 				const st = ServiceTicket(tgt, serviceName);
 
-				ticketRegistry.st.set(st);
+				registryMethods.st.set(st);
 
 				return st;
 			},
 			get(id) {
-				const st = ticketRegistry.st.get(id);
+				const st = registryMethods.st.get(id);
 				if (!validateSt(st)) {
 					return null;
 				}
@@ -155,10 +149,13 @@ exports.Registry = function (options) {
 				return st;
 			},
 			validate(id) {
-				const st = ticketRegistry.st.get(id);
+				const st = registryMethods.st.get(id);
 
-				if (st) {
-					ticketRegistry.tgt.get(st.tgtId).stIdlist.push(st.id);
+				if (validateSt(st)) {
+					st.validated = true;
+
+					registryMethods.st.set(st);
+					registryMethods.tgt.get(st.tgtId).stIdlist.push(st.id);
 
 					return true;
 				}
