@@ -194,7 +194,7 @@ function DefaultOptionsFactory() {
 					timeToKillInSeconds: 7200000
 				},
 				st: {
-					timeToKillInSeconds: 10
+					timeToKillInSeconds: 10000
 				}
 			},
 			tgc: {
