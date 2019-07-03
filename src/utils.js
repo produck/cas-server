@@ -1,4 +1,5 @@
 exports.errorCodeList = {
+	// rename errors
 	INVALID_REQUESET: 'Not all of the required request parameters were present.',
 	INVALID_TICKET_SPEC:  'Failure to meet the requirements of validation sepecification.',
 	UNAUTHORIZED_SERVICE_PROXY: 'The service in not authorized to perform proxy authentication.',

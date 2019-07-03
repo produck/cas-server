@@ -4,11 +4,9 @@ const http = require('http');
 
 const casRouter = new Router();
 
-const lts = require('./ticket/loginTicket');
 const pgtIous = require('./ticket/pgtIou');
 const utils = require('./utils');
 
-const loginTicketRegistry = lts.LoginTicketStore();
 const pgtIousRegistry = pgtIous.PgtIouStore();
 
 const localDomainToIp = /localhost/;
@@ -73,7 +71,7 @@ module.exports = function createCasRouter(tgcName) {
 
 		if (!tgc) {
 			await ctx.options.validateService(service);
-			const loginTicket = await loginTicketRegistry.create();
+			const loginTicket = await ctx.registry.ticket.lt.create();
 
 			if (!loginTicket || loginTicket.validated) {
 				return ctx.throw(400, utils.errorCodeList['INVALID_TICKET']);
@@ -108,13 +106,13 @@ module.exports = function createCasRouter(tgcName) {
 		const tgc = ctx.cookies.get(tgcName);
 		let ticketGrantingTicket;
 
-		const loginTicket = loginTicketRegistry.get(loginTicketId);
+		const loginTicket = await ctx.registry.ticket.lt.get(loginTicketId);
 
 		if (!loginTicket || loginTicket.validated) {
 			return ctx.redirect('/');
 		}
 
-		loginTicketRegistry.validate(loginTicket.id);
+		ctx.registry.ticket.lt.validate(loginTicket.id);
 
 		if (!tgc) {
 			const { user, attributes } = await ctx.options.authenticateAccount(ctx.request.body);

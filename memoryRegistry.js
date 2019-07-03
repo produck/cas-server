@@ -1,7 +1,8 @@
 exports.createMemoryRegistry = function () {
 	const store = {
 		tgt: {},
-		st: {}
+		st: {},
+		lt: {}
 	};
 	return {
 		tgt: {
@@ -24,6 +25,14 @@ exports.createMemoryRegistry = function () {
 			},
 			del(id) {
 				return delete store.st[id];
+			}
+		},
+		lt: {
+			set(lt) {
+				return store.lt[lt.id] = lt;
+			},
+			get(id) {
+				return store.lt[id];
 			}
 		}
 	};

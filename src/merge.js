@@ -4,20 +4,20 @@ const xmlBuilder = require('xmlbuilder');
 
 const PREFIX_REG = /^\/[a-zA-Z0-9_-]+/;
 
-module.exports = function mergeOptions(...optionsList) {
+module.exports = function mergeOptions(optionsList) {
 	const defaultOptions = DefaultOptionsFactory();
 
 	optionsList.forEach(({
-		serviceResistry,
-		authn,
+		serviceRegistry = defaultOptions.cas.serviceRegistry,
+		authn = defaultOptions.cas.authn,
 		ticket,
 		tgc,
-		serviceResponse,
-		loginResponse
+		serviceResponse = defaultOptions.cas.serviceResponse,
+		loginResponse = defaultOptions.cas.loginResponse
 	}) => {
 		defaultOptions.cas.serviceResponse = serviceResponse;
 		defaultOptions.cas.loginResponse = loginResponse;
-		defaultOptions.cas.serviceResistry = serviceResistry;
+		defaultOptions.cas.serviceRegistry = serviceRegistry;
 		defaultOptions.cas.authn = authn;
 
 		if (ticket) {
@@ -25,12 +25,14 @@ module.exports = function mergeOptions(...optionsList) {
 				suffix = defaultOptions.cas.ticket.suffix,
 				tgt = defaultOptions.cas.ticket.tgt,
 				st = defaultOptions.cas.ticket.st,
+				lt = defaultOptions.cas.ticket.lt,
 				registryMethods = defaultOptions.cas.ticket.registryMethods
 			} = ticket;
 
 			defaultOptions.cas.ticket.suffix = suffix;
 			defaultOptions.cas.ticket.tgt = tgt;
 			defaultOptions.cas.ticket.st = st;
+			defaultOptions.cas.ticket.lt = lt;
 			defaultOptions.cas.ticket.registryMethods = registryMethods;
 		}
 
@@ -45,70 +47,76 @@ module.exports = function mergeOptions(...optionsList) {
 		}
 	});
 
-	validateOptions(defaultOptions);
+	validateOptions(defaultOptions.cas);
 
 	return defaultOptions;
 };
 
 const validateOptionsRule = {
-	cas: {
-		serviceResistry(value) {
-			return typeof value === 'function';
-		},
-		serviceResponse(value) {
-			if (!value.authenticationSuccess || !value.authenticationFailure || !value.proxySuccess || !value.proxyFailure) {
-				return false;
+	serviceRegistry(value) {
+		return typeof value === 'function';
+	},
+	serviceResponse(value) {
+		if (!value.authenticationSuccess || !value.authenticationFailure || !value.proxySuccess || !value.proxyFailure) {
+			return false;
+		}
+
+		return true;
+	},
+	loginResponse(value) {
+		return typeof value === 'function';
+	},
+	authn(value) {
+		return typeof value === 'function';
+	},
+	tgc: {
+		path(value) {
+			if (!PREFIX_REG.test(value)) {
+				return new Error('Invalid prefix string. e.g. `/cas`');
 			}
 
 			return true;
 		},
-		loginResponse(value) {
-			return typeof value === 'function';
+		name: isString
+	},
+	ticket: {
+		suffix: isString,
+		tgt: {
+			maxTimeToLiveInSeconds: isNumber,
+			timeToKillInSeconds: isNumber
 		},
-		authn(value) {
-			return typeof value === 'function';
+		st: {
+			timeToKillInSeconds: isNumber
 		},
-		tgc: {
-			path(value) {
-				if (!PREFIX_REG.test(value)) {
-					return new Error('Invalid prefix string. e.g. `/cas`');
-				}
-
-				return true;
-			},
-			name: isString
-		},
-		ticket: {
-			suffix: isString,
+		registryMethods: {
 			tgt: {
-				maxTimeToLiveInSeconds: isNumber,
-				timeToKillInSeconds: isNumber
+				get(value) {
+					return typeof value === 'function';
+				},
+				set(value) {
+					return typeof value === 'function';
+				},
+				del(value) {
+					return typeof value === 'function';
+				}
 			},
 			st: {
-				timeToKillInSeconds: isNumber
-			},
-			registryMethods: {
-				tgt: {
-					get(value) {
-						return typeof value === 'function';
-					},
-					set(value) {
-						return typeof value === 'function';
-					},
-					del(value) {
-						return typeof value === 'function';
-					}
+				get(value) {
+					return typeof value === 'function';
 				},
-				st: {
-					get(value) {
-						return typeof value === 'function';
-					},
-					set(value) {
-						return typeof value === 'function';
-					},
-					del(value) {
-						return typeof value === 'function';
-					}
+				set(value) {
+					return typeof value === 'function';
+				},
+				del(value) {
+					return typeof value === 'function';
+				}
+			},
+			lt: {
+				get(value) {
+					return typeof value === 'function';
+				},
+				set(value) {
+					return typeof value === 'function';
 				}
 			}
 		}
@@ -161,7 +169,7 @@ function DefaultOptionsFactory() {
 
 	return {
 		cas: {
-			serviceResistry: BASIC_VALIDATE_SERVICE,
+			serviceRegistry: BASIC_VALIDATE_SERVICE,
 			authn: BASIC_AUTHENTICATE_ACCOUNT,
 			ticket: {
 				suffix: DEFAULT_SUFFIX(),
@@ -186,6 +194,14 @@ function DefaultOptionsFactory() {
 						},
 						del(id) {
 							return ticketRegistry.st.del(id);
+						}
+					},
+					lt: {
+						get(id) {
+							return ticketRegistry.lt.get(id);
+						},
+						set(value) {
+							return ticketRegistry.lt.set(value);
 						}
 					}
 				},

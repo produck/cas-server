@@ -1,16 +1,12 @@
 const randExp = require('randexp');
-const ticketBody = new randExp(/[a-zA-Z0-9]{24}/);
+const ticketBody = new randExp(/[a-z0-9A-Z]{24}/);
+
+const DEFAULT_LOGIN_TICKET_TIME_TO_KILL_IN_SECONDS = 300000;
 
 exports.Registry = function (options) {
-	const {
-		suffix, 
-		registryMethods 
-	} = options;
+	const { suffix, registryMethods, tgt, st } = options;
 
-	const tgtPolicy = options.tgt;
-	const stPolicy = options.st;
-
-	const counter = { st: 1, tgt: 1 };
+	const counter = { st: 1, tgt: 1, lt: 1 };
 
 	function TicketId(prefix, counterKey) {
 		return `${prefix}-${counter[counterKey]++}-${ticketBody.gen()}-${suffix}`;
@@ -35,10 +31,54 @@ exports.Registry = function (options) {
 			id: TicketId(isPgt ? 'PGT' : 'TGT', 'tgt'),
 			parent: parentTgtId,
 			createdAt: Date.now(),
-			stIdlist: [],
+			stIdList: [],
 			pgtIdList: [],
 			principal
 		};
+	}
+
+	function LoginTicket() {
+		return {
+			id: TicketId('LT', 'lt'),
+			createdAt: Date.now(),
+			validated: false
+		};
+	}
+
+	function validateTgt(ticketGrantingTicket, life = tgt.maxTimeToLiveInSeconds) {
+		if (!ticketGrantingTicket || !ticketGrantingTicket.id || !ticketGrantingTicket.createdAt || !ticketGrantingTicket.principal) {
+			return false;
+		}
+
+		if (ticketGrantingTicket.createdAt < Date.now() - life && st.validated) {
+			return false;
+		}
+
+		return true;
+	}
+
+	function validateSt(serviceTicket, life = st.timeToKillInSeconds) {
+		if (!serviceTicket || !serviceTicket.id || !serviceTicket.tgtId || !serviceTicket.serviceName) {
+			return false;
+		}
+
+		if (serviceTicket.createdAt < Date.now() - life && st.validated) {
+			return false;
+		}
+
+		return true;
+	}
+
+	function validateLt(loginTicket) {
+		if (!loginTicket || !loginTicket.id) {
+			return false;
+		}
+
+		if (loginTicket.validated && loginTicket.createdAt < Date.now() - DEFAULT_LOGIN_TICKET_TIME_TO_KILL_IN_SECONDS) {
+			return false;
+		}
+
+		return true;
 	}
 
 	function collectService(tgtId, list) {
@@ -58,32 +98,6 @@ exports.Registry = function (options) {
 				return collectService(pgtId, list);
 			});
 		}
-	}
-
-	function validateTgt(tgt, life = tgtPolicy.maxTimeToLiveInSeconds) {
-		if (!tgt || !tgt.id || !tgt.createdAt || !tgt.principal) {
-			return false;
-		}
-
-		if (tgt.createdAt < Date.now() - life) {
-
-			return false;
-		}
-
-		return true;
-	}
-
-	function validateSt(st, life = stPolicy.timeToKillInSeconds) {
-		if (!st || !st.id || !st.tgtId || !st.serviceName) {
-			return false;
-		}
-
-		if (st.createdAt < Date.now() - life && st.validated) {
-
-			return false;
-		}
-
-		return true;
 	}
 
 	return {
@@ -155,11 +169,41 @@ exports.Registry = function (options) {
 					st.validated = true;
 
 					registryMethods.st.set(st);
-					registryMethods.tgt.get(st.tgtId).stIdlist.push(st.id);
+					registryMethods.tgt.get(st.tgtId).stIdList.push(st.id);
 
 					return true;
 				}
 
+				return false;
+			}
+		},
+		lt: {
+			create() {
+				const lt = LoginTicket();
+
+				registryMethods.lt.set(lt);
+
+				return lt;
+			},
+			get(ltId) {
+				const lt = registryMethods.lt.get(ltId);
+				if (!validateLt(lt)) {
+					return null;
+				}
+
+				return lt;
+			},
+			validate(ltId) {
+				const lt = registryMethods.lt.get(ltId);
+
+				if (validateLt(lt)) {
+					lt.validated = true;
+
+					registryMethods.lt.set(lt);
+
+					return true;
+				}
+				
 				return false;
 			}
 		}
